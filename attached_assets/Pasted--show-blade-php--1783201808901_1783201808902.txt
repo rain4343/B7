@@ -1,0 +1,38 @@
+        <!-- ... (لەناو show.blade.php) -->
+
+        <!-- کارتی کرداری نوێ -->
+        {{-- مەرج: فۆڕمەکە تەنها بۆ سوپەر ئەدمین (user id = 1) پیشان بدە --}}
+        @if(auth()->id() == 1)
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">کرداری نوێ: هامش و ئاڕاستەکردن</h4>
+            </div>
+            <div class="card-body">
+                <form action="{{ route('admin.documents.forward', $document->id) }}" method="POST">
+                    @csrf
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">هامش / تێبینی</label>
+                        <textarea name="notes" id="notes" class="form-control @error('notes') is-invalid @enderror" rows="4" placeholder="ڕاسپاردە یان تێبینی خۆت لێرە بنووسە..."></textarea>
+                        @error('notes')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="mb-3">
+                        <label for="department_id" class="form-label">ئاڕاستەکردن بۆ هۆبەی:</label>
+                        <select name="department_id" id="department_id" class="form-select @error('department_id') is-invalid @enderror">
+                            <option value="" disabled selected>هۆبەیەک هەڵبژێرە...</option>
+                            @foreach ($departments as $department)
+                                <option value="{{ $department->id }}">{{ $department->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('department_id')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">ئاڕاستەکردن</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        @endif
