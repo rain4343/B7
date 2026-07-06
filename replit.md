@@ -1,57 +1,65 @@
-# Staff Portal
+# Staff Portal — Sharbazher Education Directorate
 
-A full-stack staff management application built as a pnpm TypeScript monorepo.
+A Kurdish-language staff management portal for the Sharbazher Education Directorate. Built as a pnpm monorepo with a React + Vite frontend, Express API backend, PostgreSQL database, and real-time chat via Socket.IO.
 
-## Architecture
+## Stack
 
-### Artifacts (runnable apps)
-- **`artifacts/staff-portal`** — React + Vite frontend (Staff Portal web app)
-- **`artifacts/api-server`** — Node.js/Express backend API
-- **`artifacts/mockup-sandbox`** — Component design sandbox (dev only)
+- **Frontend:** React 19 + Vite + Tailwind CSS + shadcn/ui (`artifacts/staff-portal`)
+- **Backend:** Express 5 + Socket.IO (`artifacts/api-server`)
+- **Database:** PostgreSQL via Drizzle ORM (`lib/db`)
+- **Auth:** Express session (bcrypt password hashing)
+- **Language:** Kurdish (Sorani, RTL)
 
-### Shared libraries (`lib/`)
-- **`lib/db`** — Drizzle ORM schema + PostgreSQL client
-- **`lib/api-spec`** — OpenAPI specification (source of truth for the API contract)
-- **`lib/api-zod`** — Zod schemas generated from the OpenAPI spec
-- **`lib/api-client-react`** — React Query hooks generated from the OpenAPI spec
+## Running the project
 
-## Tech Stack
-- **Frontend:** React 19, Vite 7, Tailwind CSS v4, Wouter, TanStack Query, Radix UI
-- **Backend:** Node.js, Express 5, TypeScript
-- **Database:** PostgreSQL via Drizzle ORM
-- **API codegen:** OpenAPI + Orval
+Both services start automatically via their configured workflows:
 
-## Running Locally
+| Service | Workflow | Port |
+|---|---|---|
+| Staff Portal (frontend) | `artifacts/staff-portal: web` | 5173 |
+| API Server (backend) | `artifacts/api-server: API Server` | 8080 |
 
-Both services start automatically via Replit workflows:
-
-| Service      | Workflow                              | Port  |
-|--------------|---------------------------------------|-------|
-| Staff Portal | `artifacts/staff-portal: web`         | 24027 |
-| API Server   | `artifacts/api-server: API Server`    | 8080  |
-
-## Database
-
-Replit's built-in PostgreSQL is used. The `DATABASE_URL` environment variable is managed automatically.
-
-To push schema changes to the database:
+To start manually:
 ```bash
-pnpm --filter @workspace/db run push
+# Install deps (first time)
+pnpm install
+
+# Push DB schema
+cd lib/db && pnpm exec drizzle-kit push
+
+# Seed sample data
+npx tsx scripts/src/seed.ts
+
+# Start frontend
+pnpm --filter @workspace/staff-portal run dev
+
+# Start backend
+pnpm --filter @workspace/api-server run dev
 ```
 
-## API Codegen
+## Default login credentials
 
-After changing `lib/api-spec/openapi.yaml`, regenerate client code:
-```bash
-pnpm run --filter @workspace/api-spec codegen
-```
+After seeding, use any of these accounts (password: `changeme123`):
 
-## Environment Variables
+| Username | Role |
+|---|---|
+| `aram.hassan` | Super Admin |
+| `karwan.jamal` | Super Admin |
+| `sara.karim` | فەرمانبەر (Staff) |
 
-| Variable        | Description                    | Source          |
-|-----------------|--------------------------------|-----------------|
-| `DATABASE_URL`  | PostgreSQL connection string   | Replit managed  |
-| `SESSION_SECRET`| Express session secret         | Replit secret   |
-| `PORT`          | Server port                    | Replit managed  |
+## Environment variables
 
-## User Preferences
+- `SESSION_SECRET` — required for Express session (already configured as a secret)
+- `DATABASE_URL` — provided automatically by Replit's built-in PostgreSQL
+
+## Features
+
+- Staff management (CRUD, profile photos, signatures)
+- Departments and roles
+- Document tracking with file uploads
+- Real-time chat between staff
+- Kurdish UI (RTL)
+
+## User preferences
+
+(none yet)
