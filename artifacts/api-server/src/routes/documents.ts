@@ -3,6 +3,7 @@ import { eq, ilike, and, desc, type SQL } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { PDFDocument } from "pdf-lib";
 import { db, documentsTable, documentLogsTable, usersTable, departmentsTable } from "@workspace/db";
 import {
   UpdateDocumentBody,
@@ -410,6 +411,102 @@ router.post("/documents/:id/logs", async (req, res) => {
     .returning();
 
   return res.status(201).json(log);
+});
+
+// POST /documents/:id/sign — embed the current user's signature onto the PDF
+router.post("/documents/:id/sign", async (req, res) => {
+  const userId = req.session?.userId;
+  if (!userId) return res.status(401).json({ error: "Authentication required" });
+
+  const docId = parseInt(req.params.id, 10);
+  if (isNaN(docId)) return res.status(400).json({ error: "Invalid document ID" });
+
+  // Load document + user in parallel
+  const [[doc], [user]] = await Promise.all([
+    db
+      .select({ id: documentsTable.id, file_path: documentsTable.file_path })
+      .from(documentsTable)
+      .where(eq(documentsTable.id, docId))
+      .limit(1),
+    db
+      .select({ id: usersTable.id, full_name: usersTable.full_name, signature_image: usersTable.signature_image })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1),
+  ]);
+
+  if (!doc) return res.status(404).json({ error: "Document not found" });
+  if (!user?.signature_image) {
+    return res.status(422).json({ error: "تۆ هێشتا ئیمزای ئەلیکترۆنیت نەناردووە. تکایە لە پرۆفایلەکەت ئیمزاکەت زیاد بکە." });
+  }
+
+  // Read files from disk
+  const pdfAbsPath = path.join(process.cwd(), "uploads", doc.file_path);
+  if (!fs.existsSync(pdfAbsPath)) {
+    return res.status(404).json({ error: "فایلی PDF نەدۆزرایەوە" });
+  }
+
+  const sigFilename = path.basename(user.signature_image);
+  const sigAbsPath = path.join(process.cwd(), "uploads", "signatures", sigFilename);
+  if (!fs.existsSync(sigAbsPath)) {
+    return res.status(422).json({ error: "فایلی ئیمزا نەدۆزرایەوە. تکایە ئیمزاکەت دووبارە بارگیری بکە." });
+  }
+
+  const [pdfBytes, sigBytes] = await Promise.all([
+    fs.promises.readFile(pdfAbsPath),
+    fs.promises.readFile(sigAbsPath),
+  ]);
+
+  // Embed signature onto the last page
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const pages = pdfDoc.getPages();
+  const lastPage = pages[pages.length - 1];
+  const { width, height } = lastPage.getSize();
+
+  const ext = path.extname(sigFilename).toLowerCase();
+  let sigImage;
+  if (ext === ".png") {
+    sigImage = await pdfDoc.embedPng(sigBytes);
+  } else {
+    sigImage = await pdfDoc.embedJpg(sigBytes);
+  }
+
+  // Scale the signature so it fits in a ~160×80 pt box, preserving aspect ratio
+  const maxW = 160, maxH = 80;
+  const { width: iw, height: ih } = sigImage.size();
+  const scale = Math.min(maxW / iw, maxH / ih);
+  const sigW = iw * scale;
+  const sigH = ih * scale;
+
+  // Place at bottom-left with 30pt margin (RTL: right side = width - margin - sigW)
+  const x = width - sigW - 30;
+  const y = 30;
+
+  lastPage.drawImage(sigImage, { x, y, width: sigW, height: sigH });
+
+  // Save signed PDF to a new file (keep original intact)
+  const signedBytes = await pdfDoc.save();
+  const newFilename = `signed-${Date.now()}-${path.basename(doc.file_path)}`;
+  const newAbsPath = path.join(process.cwd(), "uploads", "attachments", newFilename);
+  await fs.promises.writeFile(newAbsPath, signedBytes);
+
+  const newFilePath = `attachments/${newFilename}`;
+
+  // Update DB and log
+  await db
+    .update(documentsTable)
+    .set({ file_path: newFilePath, updated_at: new Date() })
+    .where(eq(documentsTable.id, docId));
+
+  await db.insert(documentLogsTable).values({
+    document_id: docId,
+    user_id: userId,
+    action: `ئیمزای ئەلیکترۆنی کرا`,
+    notes: `ئیمزاکرا لەلایەن: ${user.full_name}`,
+  });
+
+  const result = await getDocumentWithCreator(docId);
+  return res.json(result);
 });
 
 // GET /documents/uploads/attachments/:filename — authenticated file download

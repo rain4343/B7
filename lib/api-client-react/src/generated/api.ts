@@ -2610,3 +2610,45 @@ export const useCreateDocumentLog = <TError = ErrorType<ErrorResponse>,
       return useMutation(getCreateDocumentLogMutationOptions(options));
     }
 
+export const getSignDocumentUrl = (id: number) => `/api/documents/${id}/sign`;
+
+/**
+ * @summary Apply the current user's electronic signature to a document's PDF
+ */
+export const signDocument = async (id: number, options?: RequestInit): Promise<Document> => {
+  return customFetch<Document>(getSignDocumentUrl(id), {
+    ...options,
+    method: 'POST',
+  });
+};
+
+export const getSignDocumentMutationOptions = <TError = ErrorType<ErrorResponse>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof signDocument>>, TError, {id: number}, TContext>, request?: SecondParameter<typeof customFetch> }
+): UseMutationOptions<Awaited<ReturnType<typeof signDocument>>, TError, {id: number}, TContext> => {
+  const mutationKey = ['signDocument'];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof signDocument>>, {id: number}> = (props) => {
+    const { id } = props ?? {};
+    return signDocument(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SignDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof signDocument>>>;
+export type SignDocumentMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Apply the current user's electronic signature to a document's PDF
+ */
+export const useSignDocument = <TError = ErrorType<ErrorResponse>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof signDocument>>, TError, {id: number}, TContext>, request?: SecondParameter<typeof customFetch> }
+): UseMutationResult<Awaited<ReturnType<typeof signDocument>>, TError, {id: number}, TContext> => {
+  return useMutation(getSignDocumentMutationOptions(options));
+};
+
