@@ -79,7 +79,7 @@ router.get("/users/uploads/signatures/:filename", (req, res) => {
   const filename = path.basename(req.params.filename); // prevent path traversal
   const filePath = path.join(sigUploadDir, filename);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: "Not found" });
-  res.sendFile(filePath);
+  return res.sendFile(filePath);
 });
 
 // GET /users
